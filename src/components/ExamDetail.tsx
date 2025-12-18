@@ -79,8 +79,8 @@ export function ExamDetail({
                     className={`
                         inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all shadow-lg shrink-0
                         ${selectedIds.size > 0
-                            ? 'bg-slate-900 hover:bg-black text-white shadow-slate-200'
-                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'}
+                            ? 'bg-slate-900 hover:bg-black text-white shadow-slate-200 dark:shadow-slate-900'
+                            : 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed'}
                     `}
                 >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

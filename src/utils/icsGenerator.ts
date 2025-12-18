@@ -9,6 +9,15 @@ const formatICSDate = (isoString?: string): string | null => {
     return parts[0] ?? null;
 };
 
+// RFC 5545 标准要求转义特殊字符
+const escapeICSValue = (str: string): string => {
+    return str
+        .replace(/\\/g, '\\\\')  // 反斜杠必须首先转义
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;')
+        .replace(/\n/g, '\\n');
+};
+
 const foldLine = (line: string): string => {
     if (line.length <= 75) return line;
     let folded = line.substring(0, 75);
@@ -72,9 +81,9 @@ export const generateICSContent = (exams: Exam[], className: string, reminders: 
         // 修复：强制指定亚洲/上海时区，避免浮动时间问题
         lines.push(`DTSTART;TZID=Asia/Shanghai:${start}`);
         lines.push(`DTEND;TZID=Asia/Shanghai:${end}`);
-        lines.push(`SUMMARY:考试: ${summary}`);
-        lines.push(`LOCATION:${location}`);
-        lines.push(`DESCRIPTION:${descText}`);
+        lines.push(`SUMMARY:${escapeICSValue('考试: ' + summary)}`);
+        lines.push(`LOCATION:${escapeICSValue(location)}`);
+        lines.push(`DESCRIPTION:${escapeICSValue(descText)}`);
         lines.push('STATUS:CONFIRMED');
 
         reminders.forEach(min => {
