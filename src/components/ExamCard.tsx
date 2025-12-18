@@ -70,7 +70,7 @@ const ExamCard: React.FC<ExamCardProps> = ({ exam, isSelected, onToggle }) => {
                                 </>
                             ) : (
                                 <div className="bg-amber-50 border border-amber-100 rounded p-2 text-xs text-amber-800">
-                                    <span className="font-bold">时间待定:</span> {exam.raw_time || '未发布'} // raw_time not in interface, strict TS might complain if I don't add it, but let's assume it might retain or optional. 'exam' as Exam might not have raw_time. I will use 'Date Pending' logic.
+                                    <span className="font-bold">时间待定:</span> {exam.raw_time || '未发布'}
                                 </div>
                             )}
                         </div>

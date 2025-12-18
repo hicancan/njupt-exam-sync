@@ -1,34 +1,28 @@
-
 import { useState, useEffect } from 'react';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/outline'; // Need to install @heroicons/react
+import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 
 const ThemeToggle: React.FC = () => {
-    const [isDark, setIsDark] = useState<boolean>(false);
+    const [isDark, setIsDark] = useState<boolean>(() => {
+        // Initialize state from local storage or system preference
+        if (typeof window === 'undefined') return false;
+        const saved = localStorage.getItem('theme');
+        const preferDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return saved === 'dark' || (!saved && preferDark);
+    });
 
     useEffect(() => {
-        // Init theme from logic
-        const saved: string | null = localStorage.getItem('theme');
-        const preferDark: boolean = window.matchMedia('(prefers-color-scheme: dark)').matches;
-
-        if (saved === 'dark' || (!saved && preferDark)) {
-            setIsDark(true);
-            document.documentElement.classList.add('dark');
-        } else {
-            setIsDark(false);
-            document.documentElement.classList.remove('dark');
-        }
-    }, []);
-
-    const toggleTheme = () => {
+        // Sync state to DOM and local storage
         if (isDark) {
-            document.documentElement.classList.remove('dark');
-            localStorage.setItem('theme', 'light');
-            setIsDark(false);
-        } else {
             document.documentElement.classList.add('dark');
             localStorage.setItem('theme', 'dark');
-            setIsDark(true);
+        } else {
+            document.documentElement.classList.remove('dark');
+            localStorage.setItem('theme', 'light');
         }
+    }, [isDark]);
+
+    const toggleTheme = () => {
+        setIsDark(prev => !prev);
     };
 
     return (
