@@ -100,7 +100,10 @@ NJUPT-Exam-Sync/
 ├── src/                   # ⚛️ 源代码 (TypeScript)
 │   ├── components/        # 🧩 UI 组件
 │   │   ├── ExamCard.tsx          # 考试卡片
+│   │   ├── ExamDetail.tsx        # 考试详情页
+│   │   ├── ExamList.tsx          # 班级列表
 │   │   ├── ReminderSettings.tsx  # 提醒设置
+│   │   ├── SearchInput.tsx       # 搜索输入框
 │   │   ├── ThemeToggle.tsx       # 深色模式切换
 │   │   └── UptimeDisplay.tsx     # 运行监控
 │   ├── types/             # 🏷️ TypeScript 类型定义
