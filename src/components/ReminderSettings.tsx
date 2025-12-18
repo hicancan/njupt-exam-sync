@@ -32,6 +32,7 @@ export function ReminderSettings({ selected, onChange }: ReminderSettingsProps) 
                     const isActive = selected.includes(opt.value);
                     return (
                         <button
+                            type="button"
                             key={opt.value}
                             onClick={() => toggleOption(opt.value)}
                             className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all border

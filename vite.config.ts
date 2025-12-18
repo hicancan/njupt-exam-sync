@@ -24,7 +24,7 @@ export default defineConfig({
         name: 'NJUPT Exam Sync',
         short_name: 'ExamSync',
         description: '南邮考试日程助手 - 离线也能查',
-        theme_color: '#ffffff',
+        theme_color: '#4F46E5',
         background_color: '#ffffff',
         start_url: '/',
         display: 'standalone',

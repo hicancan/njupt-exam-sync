@@ -38,3 +38,8 @@ coverage/
 
 # Generated files
 project_structure.txt
+
+# Environment variables
+.env
+.env.local
+.env*.local
