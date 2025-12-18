@@ -17,10 +17,13 @@ logger = logging.getLogger(__name__)
 try:
     import pandas as pd
     import openpyxl
-except ImportError:
-    logger.error("Missing required libraries. Please run: pip install pandas openpyxl")
+    from pydantic import BaseModel, Field, field_validator, model_validator, ValidationError
+except ImportError as e:
+    logger.error(f"Missing required libraries: {e}")
+    logger.error("Please run: pip install pandas openpyxl pydantic")
     sys.exit(1)
 
+# --- Configuration & Paths ---
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PUBLIC_DIR = os.path.join(BASE_DIR, 'public')
 DATA_DIR = os.path.join(PUBLIC_DIR, 'data')
@@ -30,6 +33,7 @@ MERGED_JSON_PATH = os.path.join(DATA_DIR, 'all_exams.json')
 
 os.makedirs(DATA_DIR, exist_ok=True)
 
+# Field Mapping: Excel Column Names -> Model Fields
 FIELD_MAPPING = {
     "campus": ["校区", "校区名称"],
     "course": ["课程名称", "课程", "考试课程"],
@@ -50,63 +54,114 @@ REGEX_CHINESE = re.compile(r'(\d{4})年(\d{1,2})月(\d{1,2})日.*?(\d{1,2}:\d{2}
 REGEX_ISO = re.compile(r'\(?(\d{4}-\d{1,2}-\d{1,2})\)?.*?(\d{1,2}:\d{2})\s*[-~至]\s*(\d{1,2}:\d{2})')
 
 
+# --- Pydantic Model ---
+class ExamRecord(BaseModel):
+    id: str
+    source_file: str = Field(alias='_source_file')
+    row_index: int = Field(alias='_row_index')
+
+    # Raw Data Fields
+    campus: str = ""
+    course: str = ""
+    course_code: str = ""
+    class_name: str = ""
+    teacher: str = ""
+    location: str = ""
+    raw_time: str = ""
+    count: int = 0
+    school: str = ""
+    student_school: str = ""
+    major: str = ""
+    grade: str = ""
+    notes: str = ""
+
+    # Parsed/Derived Fields
+    start_timestamp: Optional[str] = None
+    end_timestamp: Optional[str] = None
+    duration_minutes: int = 0
+    date: Optional[str] = None
+    parse_error: Optional[str] = None
+
+    @field_validator(
+        'campus', 'course', 'course_code', 'class_name', 'teacher', 
+        'location', 'raw_time', 'school', 'student_school', 
+        'major', 'grade', 'notes', 
+        mode='before'
+    )
+    @classmethod
+    def clean_text_fields(cls, v: Any) -> str:
+        """Cleans string fields by removing non-breaking spaces and stripping whitespace."""
+        if pd.isna(v) or v == "" or v is None:
+            return ""
+        return str(v).replace('\xa0', ' ').strip()
+
+    @field_validator('count', mode='before')
+    @classmethod
+    def clean_count_field(cls, v: Any) -> int:
+        """Safely parses the count field to integer."""
+        try:
+            return int(v) if pd.notnull(v) and v != "" else 0
+        except (ValueError, TypeError):
+            return 0
+
+    @model_validator(mode='after')
+    def parse_time_logic(self):
+        """
+        Parses the raw_time field to extract start/end timestamps and duration.
+        Updates the model fields directly.
+        """
+        time_str = self.raw_time
+        if not time_str:
+            self.parse_error = "Missing time data"
+            return self
+
+        # If it's already a datetime object (rare in raw excel read as string, but possible)
+        if isinstance(time_str, (datetime, pd.Timestamp)):
+            time_str = str(time_str)
+
+        start_dt = None
+        end_dt = None
+        date_str = ""
+
+        try:
+            match_cn = REGEX_CHINESE.search(time_str)
+            match_iso = REGEX_ISO.search(time_str)
+
+            if match_cn:
+                year, month, day, start_hm, end_hm = match_cn.groups()
+                date_str = f"{year}-{int(month):02d}-{int(day):02d}"
+            elif match_iso:
+                d_str, start_hm, end_hm = match_iso.groups()
+                try:
+                    date_str = datetime.strptime(d_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+                except ValueError:
+                    date_str = d_str
+            else:
+                self.parse_error = "Unrecognized date format"
+                return self
+
+            start_str = f"{date_str} {start_hm}:00"
+            end_str = f"{date_str} {end_hm}:00"
+
+            start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
+            end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+
+            self.duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
+            self.start_timestamp = start_dt.isoformat()
+            self.end_timestamp = end_dt.isoformat()
+            self.date = date_str
+            self.parse_error = None  # Clear error if successful
+
+        except Exception as e:
+            self.parse_error = f"Parsing exception: {str(e)}"
+        
+        return self
+
+
+# --- Processing Logic ---
+
 def get_xlsx_files() -> List[str]:
     return glob.glob(os.path.join(DATA_DIR, '*.xlsx'))
-
-
-def clean_text(text: Any) -> str:
-    if pd.isna(text) or text == "" or text is None:
-        return ""
-    return str(text).replace('\xa0', ' ').strip()
-
-
-def parse_exam_time(time_val: Any) -> Dict[str, Any]:
-    if pd.isna(time_val) or time_val == "":
-        return {"error": "Time field is empty"}
-
-    if isinstance(time_val, (datetime, pd.Timestamp)):
-        time_str = str(time_val)
-    else:
-        time_str = clean_text(time_val)
-
-    start_dt = None
-    end_dt = None
-    date_str = ""
-
-    try:
-        match_cn = REGEX_CHINESE.search(time_str)
-        match_iso = REGEX_ISO.search(time_str)
-
-        if match_cn:
-            year, month, day, start_hm, end_hm = match_cn.groups()
-            date_str = f"{year}-{int(month):02d}-{int(day):02d}"
-        elif match_iso:
-            d_str, start_hm, end_hm = match_iso.groups()
-            try:
-                date_str = datetime.strptime(d_str, "%Y-%m-%d").strftime("%Y-%m-%d")
-            except ValueError:
-                date_str = d_str
-        else:
-            return {"error": "Unrecognized date format"}
-
-        start_str = f"{date_str} {start_hm}:00"
-        end_str = f"{date_str} {end_hm}:00"
-
-        start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-        end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
-
-        duration = int((end_dt - start_dt).total_seconds() / 60)
-
-        return {
-            "start_timestamp": start_dt.isoformat(),
-            "end_timestamp": end_dt.isoformat(),
-            "duration_minutes": duration,
-            "date": date_str,
-            "error": None
-        }
-    except Exception as e:
-        return {"error": f"Parsing exception: {str(e)}"}
-
 
 def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
     filename = os.path.basename(file_path)
@@ -115,6 +170,7 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
     try:
         df = pd.read_excel(file_path, engine='openpyxl')
         
+        # 1. Determine Column Mapping
         current_file_mapping = {}
         for std_key, possible_cols in FIELD_MAPPING.items():
             found_col = None
@@ -124,44 +180,52 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
                     break
             current_file_mapping[std_key] = found_col
         
-        clean_data = []
+        clean_models: List[ExamRecord] = []
         validation_errors = []
+        
         records = df.to_dict(orient='records')
         
+        # 2. Iterate and Validate using Pydantic
         for idx, row in enumerate(records, start=2):
-            processed_row = {
+            # Prepare raw dictionary for Pydantic
+            raw_input = {
                 '_source_file': filename,
                 '_row_index': idx,
                 'id': f"{filename}-{idx}"
             }
             
+            # Extract mapped fields
             for std_key, original_col in current_file_mapping.items():
                 if original_col:
-                    val = row.get(original_col)
-                    if std_key == 'count':
-                        try:
-                            processed_row[std_key] = int(val) if pd.notnull(val) else 0
-                        except (ValueError, TypeError):
-                            processed_row[std_key] = 0
-                    else:
-                        processed_row[std_key] = clean_text(val)
+                    raw_input[std_key] = row.get(original_col)
                 else:
-                    processed_row[std_key] = "" if std_key != 'count' else 0
+                    raw_input[std_key] = None
 
-            raw_time_val = row.get(current_file_mapping.get('raw_time'))
-            processed_row['raw_time'] = clean_text(raw_time_val)
+            # Create Record
+            record = ExamRecord(**raw_input)
+            
+            # Check for soft validation errors (time parsing)
+            if record.parse_error:
+                err_msg = f"Row {idx}: {record.parse_error} (Raw: '{record.raw_time}')"
+                validation_errors.append(err_msg)
+            
+            clean_models.append(record)
 
-            if raw_time_val:
-                time_result = parse_exam_time(raw_time_val)
-                if time_result.get('error'):
-                    validation_errors.append(f"Row {idx}: {time_result['error']} (Raw: '{processed_row['raw_time']}')")
-                    processed_row['parse_error'] = time_result['error']
-                else:
-                    processed_row.update(time_result)
-            else:
-                processed_row['parse_error'] = "Missing time data"
-
-            clean_data.append(processed_row)
+        # 3. Serialize Results
+        # Pydantic models to dicts
+        serialized_data = [
+            model.model_dump(by_alias=True, exclude={'source_file', 'row_index'}) # Use alias only for dump if needed, but we usually want cleaner keys in JSON. 
+            # Actually, previous script used '_source_file' in output json? 
+            # Previous script: processed_row['_source_file'] = filename.
+            # Let's keep '_source_file' in output JSON for debugging.
+            # model_dump(by_alias=True) will use shortcuts like '_source_file'.
+            for model in clean_models
+        ]
+        
+        # Fix aliases for JSON output similarity?
+        # The previous script produced keys: id, _source_file, _row_index, campus...
+        # Pydantic fields are: source_file (alias=_source_file).
+        # model.model_dump(by_alias=True) will produce: {'_source_file': ..., 'campus': ...} which matches previous output.
 
         return {
             "filename": filename,
@@ -169,14 +233,13 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
             "validation_errors": validation_errors,
             "total_errors": len(validation_errors),
             "column_details": {col: str(df[col].dtype) for col in df.columns},
-            "raw_data": clean_data,
-            "samples": clean_data[:3] if clean_data else []
+            "raw_data": serialized_data,
+            "samples": serialized_data[:3] if serialized_data else []
         }
 
     except Exception as e:
         logger.error(f"Failed to process {file_path}: {e}", exc_info=True)
         return None
-
 
 def generate_markdown_report(analyses: List[Dict], total_records: int) -> str:
     lines = ["# Data Inventory & Quality Report", ""]
@@ -202,16 +265,19 @@ def generate_markdown_report(analyses: List[Dict], total_records: int) -> str:
         lines.append("### Data Preview (Top 3 Rows)")
         
         if analysis['samples']:
-            # Create a Markdown table for samples
-            keys = [k for k in analysis['samples'][0].keys() if k not in ['id', '_source_file', '_row_index']]
+            # Filter internal keys for cleaner table
+            keys = [k for k in analysis['samples'][0].keys() if not k.startswith('_') and k != 'id']
+            # Prioritize some keys
+            priority_keys = ['campus', 'course', 'class_name', 'teacher', 'raw_time', 'start_timestamp']
+            sorted_keys = [k for k in priority_keys if k in keys] + [k for k in keys if k not in priority_keys]
             
             # Header
-            lines.append("| " + " | ".join(keys) + " |")
+            lines.append("| " + " | ".join(sorted_keys) + " |")
             # Separator
-            lines.append("| " + " | ".join(["---"] * len(keys)) + " |")
+            lines.append("| " + " | ".join(["---"] * len(sorted_keys)) + " |")
             # Rows
             for sample in analysis['samples']:
-                row_vals = [str(sample.get(k, '')) for k in keys]
+                row_vals = [str(sample.get(k, '')).replace('\n', ' ') for k in sorted_keys]
                 lines.append("| " + " | ".join(row_vals) + " |")
         else:
             lines.append("_No data extracted_")
@@ -224,11 +290,14 @@ def generate_markdown_report(analyses: List[Dict], total_records: int) -> str:
 
 
 def main():
-    logger.info("Starting data extraction process...")
+    logger.info("Starting data extraction process (Pydantic Powered)...")
     files = get_xlsx_files()
     
     if not files:
-        logger.warning("No .xlsx files found in 'data/' directory.")
+        logger.warning(f"No .xlsx files found in '{DATA_DIR}' directory.")
+        # Try to debug why
+        logger.info(f"Base Dir: {BASE_DIR}")
+        logger.info(f"Public Dir: {PUBLIC_DIR}")
         return
 
     analyses = []
@@ -241,20 +310,29 @@ def main():
             all_rows.extend(result['raw_data'])
 
     logger.info(f"Saving {len(all_rows)} records to {MERGED_JSON_PATH}...")
-    with open(MERGED_JSON_PATH, 'w', encoding='utf-8') as f:
-        json.dump(all_rows, f, ensure_ascii=False, separators=(',', ':'))
+    try:
+        with open(MERGED_JSON_PATH, 'w', encoding='utf-8') as f:
+            json.dump(all_rows, f, ensure_ascii=False, separators=(',', ':'))
+    except Exception as e:
+        logger.error(f"Failed to write JSON: {e}")
 
     report_content = generate_markdown_report(analyses, len(all_rows))
-    with open(OUTPUT_DOC_PATH, 'w', encoding='utf-8') as f:
-        f.write(report_content)
+    try:
+        with open(OUTPUT_DOC_PATH, 'w', encoding='utf-8') as f:
+            f.write(report_content)
+    except Exception as e:
+         logger.error(f"Failed to write Report: {e}")
 
     manifest = {
         "generated_at": datetime.now().isoformat(),
         "files_processed": [a['filename'] for a in analyses],
         "total_records": len(all_rows)
     }
-    with open(MANIFEST_PATH, 'w', encoding='utf-8') as f:
-        json.dump(manifest, f, indent=2)
+    try:
+        with open(MANIFEST_PATH, 'w', encoding='utf-8') as f:
+            json.dump(manifest, f, indent=2)
+    except Exception as e:
+         logger.error(f"Failed to write Manifest: {e}")
 
     logger.info("Data processing complete.")
 
