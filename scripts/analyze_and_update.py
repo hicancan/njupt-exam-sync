@@ -212,19 +212,11 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
 
         # 3. Serialize Results
         # Pydantic models to dicts
+        # Note: When by_alias=True, exclude must use alias names (_source_file, _row_index)
         serialized_data = [
-            model.model_dump(by_alias=True, exclude={'source_file', 'row_index'}) # Use alias only for dump if needed, but we usually want cleaner keys in JSON. 
-            # Actually, previous script used '_source_file' in output json? 
-            # Previous script: processed_row['_source_file'] = filename.
-            # Let's keep '_source_file' in output JSON for debugging.
-            # model_dump(by_alias=True) will use shortcuts like '_source_file'.
+            model.model_dump(by_alias=True, exclude={'_source_file', '_row_index'})
             for model in clean_models
         ]
-        
-        # Fix aliases for JSON output similarity?
-        # The previous script produced keys: id, _source_file, _row_index, campus...
-        # Pydantic fields are: source_file (alias=_source_file).
-        # model.model_dump(by_alias=True) will produce: {'_source_file': ..., 'campus': ...} which matches previous output.
 
         return {
             "filename": filename,

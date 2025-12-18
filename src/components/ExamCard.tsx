@@ -23,7 +23,7 @@ export function ExamCard({ exam, isSelected, onToggle }: ExamCardProps) {
             role="button"
             tabIndex={0}
             aria-pressed={isSelected}
-            aria-label={`${exam.course || exam.course_name}，${isSelected ? '已选中' : '未选中'}`}
+            aria-label={`${exam.course_name}，${isSelected ? '已选中' : '未选中'}`}
             onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') {
                     e.preventDefault();
@@ -47,7 +47,7 @@ export function ExamCard({ exam, isSelected, onToggle }: ExamCardProps) {
                                 {isSelected && <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>}
                             </div>
                             <h3 className={`text-lg font-bold leading-snug ${isSelected ? 'text-slate-800 dark:text-slate-100' : 'text-slate-500 dark:text-slate-500'}`}>
-                                {exam.course || exam.course_name}
+                                {exam.course_name}
                             </h3>
                         </div>
                         <div className="mt-1.5 ml-7">

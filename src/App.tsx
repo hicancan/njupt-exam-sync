@@ -38,7 +38,13 @@ function App() {
                     return a.start_timestamp ? -1 : 1;
                 });
 
-                setAllExams(examsData);
+                // Normalize: unify 'course' alias to 'course_name'
+                const normalizedExams = examsData.map(exam => ({
+                    ...exam,
+                    course_name: exam.course_name || exam.course || '未知课程'
+                }));
+
+                setAllExams(normalizedExams);
 
                 if (manifestData && manifestData.generated_at) {
                     const date = new Date(manifestData.generated_at);

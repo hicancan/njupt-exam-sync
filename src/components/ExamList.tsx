@@ -1,3 +1,5 @@
+import { APP_CONFIG } from '@/constants';
+
 interface ExamListProps {
     classes: string[];
     onClassClick: (cls: string) => void;
@@ -12,7 +14,7 @@ export function ExamList({ classes, onClassClick }: ExamListProps) {
                 </h2>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {classes.slice(0, 50).map(cls => (
+                {classes.slice(0, APP_CONFIG.MAX_CLASS_DISPLAY_COUNT).map(cls => (
                     <button
                         type="button"
                         key={cls}
@@ -23,7 +25,7 @@ export function ExamList({ classes, onClassClick }: ExamListProps) {
                     </button>
                 ))}
             </div>
-            {classes.length > 50 && (
+            {classes.length > APP_CONFIG.MAX_CLASS_DISPLAY_COUNT && (
                 <p className="text-center text-xs text-slate-400 mt-6">
                     结果较多，请继续输入以筛选...
                 </p>

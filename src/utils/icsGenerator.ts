@@ -73,7 +73,7 @@ export const generateICSContent = (exams: Exam[], className: string, reminders: 
         ].filter(Boolean).join('\\n');
 
         const location = `${exam.campus ? `[${exam.campus}] ` : ''}${exam.location}`;
-        const summary = exam.course || exam.course_name || '未知课程';
+        const summary = exam.course_name;
 
         lines.push('BEGIN:VEVENT');
         lines.push(`UID:${exam.id}-${index}@${APP_CONFIG.DOMAIN}`);

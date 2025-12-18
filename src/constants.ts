@@ -10,5 +10,6 @@ export const APP_CONFIG = {
         EXAMS: 'data/all_exams.json',
         SUMMARY: 'data/data_summary.json'
     },
-    START_TIME_DEFAULT: '2025-12-15T00:00:00'
+    START_TIME_DEFAULT: '2025-12-15T00:00:00',
+    MAX_CLASS_DISPLAY_COUNT: 50
 };
