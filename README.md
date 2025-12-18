@@ -13,7 +13,7 @@
 ![GitHub forks](https://img.shields.io/github/forks/hicancan/njupt-exam-sync?style=flat-square)
 ![GitHub license](https://img.shields.io/github/license/hicancan/njupt-exam-sync?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.8+-blue.svg?style=flat-square)
-![React Version](https://img.shields.io/badge/react-18.x-61dafb.svg?style=flat-square)
+![React Version](https://img.shields.io/badge/react-19.x-61dafb.svg?style=flat-square)
 
 </div>
 
@@ -34,6 +34,7 @@
 - 📱 **PWA 支持**：支持“添加到主屏幕”，像原生 App 一样全屏运行，体验更佳。
 - 🔔 **定制提醒**：内置考前 1小时、30分钟等多重提醒选项，绝不缺考。
 - 🛡️ **隐私安全**：纯静态站点，无后台数据库，所有查询逻辑在浏览器本地完成。
+- ⏱️ **实时监控**：首页集成安全运行时间与访客统计，数据更新状态一目了然。
 
 ## 📸 预览 (Screenshots)
 
@@ -59,7 +60,7 @@
 1. **克隆仓库**
 
     ```bash
-    git clone [https://github.com/hicancan/njupt-exam-sync.git](https://github.com/hicancan/njupt-exam-sync.git)
+    git clone https://github.com/hicancan/njupt-exam-sync.git
     cd njupt-exam-sync
     ```
 
@@ -86,11 +87,13 @@ NJUPT-Exam-Sync/
 │   └── ...
 ├── src/                   # ⚛️ React 源码
 │   ├── components/
+│   │   ├── UptimeDisplay.jsx  # ⏱️ 运行时间组件
+│   │   └── ...
 │   ├── App.jsx
 │   └── ...
 ├── scripts/               # ⚙️ 工具脚本
 │   ├── analyze_and_update.py  # Python ETL (读取 data/*.xlsx -> 输出到 public/data)
-│   └── run_locally.bat        # (可选) 旧版启动脚本
+│   └── run_locally.bat        # windows一键本地启动脚本
 ├── package.json           # 📦 依赖管理
 ├── vite.config.js         # ⚡ Vite 配置
 └── README.md              # 📄 项目说明文档
@@ -107,7 +110,7 @@ NJUPT-Exam-Sync/
    Bash
 
    ```
-   pip install pandas openpyxl
+   pip install pandas openpyxl pydantic
    ```
 
 3. 运行数据处理脚本：
@@ -122,6 +125,7 @@ NJUPT-Exam-Sync/
 
    - ✅ 识别并清洗不同格式的 Excel 列。
    - ✅ 解析复杂的时间格式（如 "第11周周二..."）。
+   - ✅ 生成 `DATA_INVENTORY.md` 数据质量报告，检测潜在错误。
 
 5. 提交更改到 GitHub，GitHub Pages 会自动部署更新。
 
