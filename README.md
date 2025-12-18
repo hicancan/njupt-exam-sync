@@ -4,7 +4,6 @@
 
 <img src="public/assets/icon-192.png" width="100" height="100" alt="Logo" />
 
-
 ### ✨ 为南邮学子打造的极简考试日程同步工具
 
 [**在线使用**](https://njupt.hicancan.top) · [报告Bug](https://github.com/hicancan/njupt-exam-sync/issues) · [请求功能](https://github.com/hicancan/njupt-exam-sync/issues)
@@ -23,13 +22,15 @@
 
 **NJUPT Exam Sync** 是一个轻量级、无需登录的纯前端工具，旨在解决教务处 Excel 考表查询繁琐、难以保存的问题。
 
-只需输入班级号，即可快速筛选出你的期末考试安排，支持**自主勾选**需要参加的考试，并一键导出 `.ics` 日历文件。完美适配 iOS/Android/鸿蒙/Outlook 等主流系统日历，彻底告别“看错行”和“记错时间”。
+只需输入班级号，即可快速筛选出你的期末考试安排。不仅支持**模糊搜索**，还支持**自主勾选**需要参加的考试（完美解决重修/免修的个性化需求），并一键导出 `.ics` 日历文件。
+
+导出的日历完美适配 iOS/Android/鸿蒙/Outlook/Google Calendar 等主流系统日历，彻底告别“看错行”和“记错时间”。
 
 ## ✨ 核心亮点 (Features)
 
-- ⚡ **极速体验**：接入国内 Staticfile CDN 加速，秒开无白屏。
+- ⚡ **极速体验**：基于 React 19 + Vite 构建，秒开无白屏。
 - 🔍 **智能搜索**：输入班级号（支持模糊匹配）自动联想，毫秒级响应。
-- 📅 **按需导出**：支持**手动勾选/反选**考试科目（重修/免修轻松处理），一键生成标准 iCalendar 文件。
+- 📅 **按需导出**：支持**手动勾选/反选**考试科目，一键生成标准 iCalendar (.ics) 文件，包含**时区修正**。
 - 🔗 **社交分享**：支持生成带有班级参数的链接，复制发给同学，点开即看。
 - 📱 **PWA 支持**：支持“添加到主屏幕”，像原生 App 一样全屏运行，体验更佳。
 - 🔔 **定制提醒**：内置考前 1小时、30分钟等多重提醒选项，绝不缺考。
@@ -65,6 +66,7 @@
     ```
 
 2. **启动本地服务**
+
     - **Windows**: 直接双击运行根目录下的 `scripts/run_locally.bat`。
     - **Mac/Linux**:
 
@@ -76,7 +78,7 @@
 
 ## 🛠️ 项目结构与数据流 (Architecture)
 
-本项目采用 **"Excel in, JSON out"** 的数据处理流。后端 Python 脚本负责清洗教务处的脏数据，前端 React 负责展示和交互。
+本项目采用 **"Excel in, JSON out"** 的 Severless 数据处理流。后端 Python 脚本负责清洗教务处的复杂 Excel 数据，前端 React 负责展示和交互。
 
 ```text
 NJUPT-Exam-Sync/
@@ -86,14 +88,19 @@ NJUPT-Exam-Sync/
 │   ├── manifest.json      # 📝 数据版本记录
 │   └── ...
 ├── src/                   # ⚛️ React 源码
-│   ├── components/
-│   │   ├── UptimeDisplay.jsx  # ⏱️ 运行时间组件
-│   │   └── ...
-│   ├── App.jsx
+│   ├── components/        # 🧩 UI 组件
+│   │   ├── ExamCard.jsx          # 考试卡片
+│   │   ├── ReminderSettings.jsx  # 提醒设置
+│   │   └── UptimeDisplay.jsx     # 运行监控
+│   ├── utils/             # 🛠️ 工具函数
+│   │   └── icsGenerator.js       # ICS 生成算法
+│   ├── App.jsx            # 📱 主应用逻辑
 │   └── ...
 ├── scripts/               # ⚙️ 工具脚本
-│   ├── analyze_and_update.py  # Python ETL (读取 data/*.xlsx -> 输出到 public/data)
-│   └── run_locally.bat        # windows一键本地启动脚本
+│   ├── analyze_and_update.py  # Python ETL (基于 Pydantic 清洗数据)
+│   └── run_locally.bat        # Windows 一键启动
+├── .github/workflows/     # 🤖 CI/CD
+│   └── deploy.yml         # 自动部署到 GitHub Pages
 ├── package.json           # 📦 依赖管理
 ├── vite.config.js         # ⚡ Vite 配置
 └── README.md              # 📄 项目说明文档
@@ -103,48 +110,44 @@ NJUPT-Exam-Sync/
 
 当教务处发布新的 Excel 考表时，管理员只需执行以下步骤：
 
-1. 将新的 `.xlsx` 文件放入 `data/` 目录（删除旧的以防混淆）。
+1. 将新的 `.xlsx` 文件放入 `data/` 目录（建议删除旧文件以防混淆，或按学期归档）。
 
 2. 安装依赖（仅首次需要）：
 
-   Bash
-
-   ```
+   ```bash
    pip install pandas openpyxl pydantic
    ```
 
 3. 运行数据处理脚本：
 
-   Bash
-
+   ```bash
+   python scripts/analyze_and_update.py
    ```
-    python scripts/analyze_and_update.py
-    ```
 
 4. 脚本会自动：
+   - ✅ 识别并清洗不同格式的 Excel 列（兼容多种教务系统导出格式）。
+   - ✅ 解析复杂的时间格式（如 "第11周周二 1-2节" 或 ISO 日期）。
+   - ✅ 校验数据完整性，并生成 `DATA_INVENTORY.md` 数据质量报告。
+   - ✅ 合并生成 `public/data/all_exams.json`。
 
-   - ✅ 识别并清洗不同格式的 Excel 列。
-   - ✅ 解析复杂的时间格式（如 "第11周周二..."）。
-   - ✅ 生成 `DATA_INVENTORY.md` 数据质量报告，检测潜在错误。
-
-5. 提交更改到 GitHub，GitHub Pages 会自动部署更新。
+5. 提交更改到 GitHub，GitHub Pages 会自动构建并部署更新。
 
 ## 🤝 贡献 (Contributing)
 
 欢迎提交 Issue 或 Pull Request！
 
-如果你发现了新的考表格式导致解析失败，请附上脱敏后的 Excel 样本。
+如果你发现了新的考表格式导致解析失败，请提交 Issue 并附上脱敏后的 Excel 样本的一两行数据。
 
 ## ⚠️ 免责声明 (Disclaimer)
 
 - 本工具数据来源于教务处发布的 Excel 汇总表，经程序自动处理生成。
-- 虽然我们尽力确保解析算法的准确性，但**无法保证 100% 无误**。
+- 虽然我们使用了 Pydantic 进行严格的数据校验，但**无法保证 100% 无误**。
 - **最终考试时间、地点请务必以学校教务系统及准考证为准！**
 - 开发者不对因依赖本工具而导致的任何考试延误或缺考承担责任。
 
 ## 📄 开源协议 (License)
 
-本项目遵循 [MIT License](https://www.google.com/search?q=LICENSE&authuser=2) 开源协议。
+本项目遵循 [MIT License](LICENSE) 开源协议。
 
 ------
 
