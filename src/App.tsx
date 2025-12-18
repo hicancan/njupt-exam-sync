@@ -4,14 +4,14 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { SearchInput } from './components/SearchInput';
 import { ExamList } from './components/ExamList';
 import { ExamDetail } from './components/ExamDetail';
-import { Exam, Manifest, SearchResult } from '@/types';
+import { SearchResult } from '@/types';
 import { APP_CONFIG } from '@/constants';
+import { useExamData } from '@/hooks/useExamData';
 
 function App() {
-    const [allExams, setAllExams] = useState<Exam[]>([]);
-    const [updateTime, setUpdateTime] = useState<string | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [error, setError] = useState<string | null>(null);
+    const { exams: allExams, loading, error, updateTime } = useExamData();
+
+    // UI State
     const [inputValue, setInputValue] = useState<string>(() => {
         const urlParams = new URLSearchParams(window.location.search);
         return urlParams.get('class') || '';
@@ -22,40 +22,6 @@ function App() {
     });
     const [reminders, setReminders] = useState<number[]>([30, 60]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-    useEffect(() => {
-        const fetchOptions: RequestInit = { cache: 'no-cache' };
-
-        Promise.all([
-            fetch(APP_CONFIG.DATA_URLS.EXAMS, fetchOptions).then(r => r.json() as Promise<Exam[]>),
-            fetch(APP_CONFIG.DATA_URLS.SUMMARY, fetchOptions).then(r => r.json() as Promise<Manifest>).catch(() => null)
-        ])
-            .then(([examsData, manifestData]) => {
-                examsData.sort((a, b) => {
-                    if (a.start_timestamp && b.start_timestamp) {
-                        return a.start_timestamp.localeCompare(b.start_timestamp);
-                    }
-                    return a.start_timestamp ? -1 : 1;
-                });
-
-                setAllExams(examsData);
-
-                if (manifestData && manifestData.generated_at) {
-                    const date = new Date(manifestData.generated_at);
-                    setUpdateTime(date.toLocaleString('zh-CN', {
-                        year: 'numeric', month: '2-digit', day: '2-digit',
-                        hour: '2-digit', minute: '2-digit'
-                    }));
-                }
-
-                setLoading(false);
-            })
-            .catch(err => {
-                console.error(err);
-                setError(`无法加载数据，请检查网络连接 (${APP_CONFIG.DATA_URLS.EXAMS})`);
-                setLoading(false);
-            });
-    }, []);
 
     const searchResult = useMemo<SearchResult>(() => {
         if (!inputValue || inputValue.length < 2) {

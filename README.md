@@ -8,9 +8,7 @@
 
 [**在线使用**](https://njupt.hicancan.top) · [报告Bug](https://github.com/hicancan/njupt-exam-sync/issues) · [请求功能](https://github.com/hicancan/njupt-exam-sync/issues)
 
-![GitHub stars](https://img.shields.io/github/stars/hicancan/njupt-exam-sync?style=flat-square)
-![GitHub forks](https://img.shields.io/github/forks/hicancan/njupt-exam-sync?style=flat-square)
-![GitHub license](https://img.shields.io/github/license/hicancan/njupt-exam-sync?style=flat-square)
+![License](https://img.shields.io/badge/license-MIT-green.svg?style=flat-square)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-blue.svg?style=flat-square)
 ![React Version](https://img.shields.io/badge/react-19.x-61dafb.svg?style=flat-square)
 ![TailwindCSS Version](https://img.shields.io/badge/tailwindcss-v4.0+-38bdf8.svg?style=flat-square)
