@@ -583,6 +583,18 @@ def main():
         "files_processed": [a['filename'] for a in analyses],
         "total_records": len(all_rows)
     }
+
+    # Try to load source metadata
+    metadata_path = os.path.join(DATA_DIR, 'source_metadata.json')
+    if os.path.exists(metadata_path):
+        try:
+            with open(metadata_path, 'r', encoding='utf-8') as f:
+                meta = json.load(f)
+                manifest['source_url'] = meta.get('source_url')
+                manifest['source_title'] = meta.get('source_title')
+        except Exception as e:
+             logger.warning(f"Failed to load source metadata: {e}")
+
     try:
         with open(os.path.join(DATA_DIR, 'data_summary.json'), 'w', encoding='utf-8') as f:
             json.dump(manifest, f, indent=2, ensure_ascii=False)

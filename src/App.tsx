@@ -9,7 +9,7 @@ import { APP_CONFIG } from '@/constants';
 import { useExamData } from '@/hooks/useExamData';
 
 function App() {
-    const { exams: allExams, loading, error, updateTime } = useExamData();
+    const { exams: allExams, loading, error, updateTime, sourceUrl, sourceTitle } = useExamData();
 
     // UI State
     const [inputValue, setInputValue] = useState<string>(() => {
@@ -165,7 +165,11 @@ function App() {
                         </a>
                     </div>
 
-                    <UptimeDisplay lastUpdate={updateTime} />
+                    <UptimeDisplay
+                        lastUpdate={updateTime}
+                        sourceUrl={sourceUrl}
+                        sourceTitle={sourceTitle}
+                    />
 
                     <p>
                         © {new Date().getFullYear()} <a href={`https://${APP_CONFIG.DOMAIN}`} className="hover:text-indigo-600 transition-colors">{APP_CONFIG.DOMAIN}</a> · All Rights Reserved

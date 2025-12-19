@@ -7,6 +7,8 @@ interface UseExamDataResult {
     loading: boolean;
     error: string | null;
     updateTime: string | null;
+    sourceUrl: string | null;
+    sourceTitle: string | null;
 }
 
 export function useExamData(): UseExamDataResult {
@@ -14,6 +16,8 @@ export function useExamData(): UseExamDataResult {
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
     const [updateTime, setUpdateTime] = useState<string | null>(null);
+    const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+    const [sourceTitle, setSourceTitle] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchOptions: RequestInit = { cache: 'no-cache' };
@@ -38,6 +42,8 @@ export function useExamData(): UseExamDataResult {
                         year: 'numeric', month: '2-digit', day: '2-digit',
                         hour: '2-digit', minute: '2-digit'
                     }));
+                    setSourceUrl(manifestData.source_url || null);
+                    setSourceTitle(manifestData.source_title || null);
                 }
 
                 setLoading(false);
@@ -49,5 +55,5 @@ export function useExamData(): UseExamDataResult {
             });
     }, []);
 
-    return { exams, loading, error, updateTime };
+    return { exams, loading, error, updateTime, sourceUrl, sourceTitle };
 }

@@ -30,6 +30,8 @@ export interface Manifest {
     generated_at: string; // ISO string
     files_processed: string[]; // List of processed Excel files
     total_records: number; // From Python script
+    source_url?: string; // Original URL of the exam schedule
+    source_title?: string; // Title of the news article
 }
 
 export type SearchMode = 'EMPTY' | 'NOT_FOUND' | 'LIST' | 'DETAIL';

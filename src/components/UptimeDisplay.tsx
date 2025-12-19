@@ -4,9 +4,16 @@ import { APP_CONFIG } from '@/constants';
 interface UptimeDisplayProps {
     lastUpdate: string | null;
     startTime?: string;
+    sourceUrl?: string | null;
+    sourceTitle?: string | null;
 }
 
-export function UptimeDisplay({ lastUpdate, startTime = APP_CONFIG.START_TIME_DEFAULT }: UptimeDisplayProps) {
+export function UptimeDisplay({
+    lastUpdate,
+    startTime = APP_CONFIG.START_TIME_DEFAULT,
+    sourceUrl,
+    sourceTitle
+}: UptimeDisplayProps) {
     const [uptime, setUptime] = useState<string>('');
 
     useEffect(() => {
@@ -39,6 +46,13 @@ export function UptimeDisplay({ lastUpdate, startTime = APP_CONFIG.START_TIME_DE
             <p>
                 数据最后更新: <span className="font-mono text-slate-500">{lastUpdate || '获取中...'}</span>
             </p>
+            {sourceUrl && (
+                <p className="text-xs text-slate-400">
+                    数据来源: <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="hover:text-indigo-500 underline decoration-dotted underline-offset-2" title={sourceTitle || '点击查看教务通知'}>
+                        {sourceTitle ? (sourceTitle.length > 20 ? sourceTitle.substring(0, 20) + '...' : sourceTitle) : '教务处通知'}
+                    </a>
+                </p>
+            )}
         </div>
     );
 }
