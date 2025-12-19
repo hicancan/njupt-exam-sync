@@ -169,8 +169,45 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
     try:
         df = pd.read_excel(file_path, engine='openpyxl')
         
-        # 1. Determine Column Mapping
+        # ========== Part A: Raw Excel Analysis ==========
+        raw_columns_info = []
+        for col in df.columns:
+            col_data = df[col]
+            non_null_count = col_data.notna().sum()
+            null_count = col_data.isna().sum()
+            total = len(col_data)
+            non_null_pct = (non_null_count / total * 100) if total > 0 else 0
+            unique_count = col_data.nunique()
+            
+            # Sample values (first 3 non-null unique values)
+            sample_values = col_data.dropna().unique()[:3].tolist()
+            sample_str = ", ".join([str(v)[:30] for v in sample_values])
+            
+            raw_columns_info.append({
+                "column_name": str(col),
+                "dtype": str(col_data.dtype),
+                "non_null_count": int(non_null_count),
+                "null_count": int(null_count),
+                "non_null_pct": round(non_null_pct, 1),
+                "unique_count": int(unique_count),
+                "sample_values": sample_str
+            })
+        
+        # Raw data samples (first 3 rows as-is from Excel)
+        raw_samples = df.head(3).to_dict(orient='records')
+        # Convert any non-serializable types
+        for sample in raw_samples:
+            for k, v in sample.items():
+                if pd.isna(v):
+                    sample[k] = None
+                elif hasattr(v, 'isoformat'):
+                    sample[k] = v.isoformat()
+                else:
+                    sample[k] = str(v) if not isinstance(v, (str, int, float, bool, type(None))) else v
+        
+        # ========== Column Mapping ==========
         current_file_mapping = {}
+        mapping_details = []
         for std_key, possible_cols in FIELD_MAPPING.items():
             found_col = None
             for col in possible_cols:
@@ -178,54 +215,100 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
                     found_col = col
                     break
             current_file_mapping[std_key] = found_col
+            mapping_details.append({
+                "standard_field": std_key,
+                "excel_column": found_col if found_col else "(not found)",
+                "possible_names": possible_cols,
+                "mapped": found_col is not None
+            })
         
+        # ========== Part B: Processing ==========
         clean_models: List[ExamRecord] = []
         validation_errors = []
+        parse_success_count = 0
+        parse_fail_count = 0
         
         records = df.to_dict(orient='records')
         
-        # 2. Iterate and Validate using Pydantic
         for idx, row in enumerate(records, start=2):
-            # Prepare raw dictionary for Pydantic
             raw_input = {
                 '_source_file': filename,
                 '_row_index': idx,
                 'id': f"{filename}-{idx}"
             }
             
-            # Extract mapped fields
             for std_key, original_col in current_file_mapping.items():
                 if original_col:
                     raw_input[std_key] = row.get(original_col)
                 else:
                     raw_input[std_key] = None
 
-            # Create Record
             record = ExamRecord(**raw_input)
             
-            # Check for soft validation errors (time parsing)
             if record.parse_error:
                 err_msg = f"Row {idx}: {record.parse_error} (Raw: '{record.raw_time}')"
                 validation_errors.append(err_msg)
+                parse_fail_count += 1
+            else:
+                parse_success_count += 1
             
             clean_models.append(record)
 
-        # 3. Serialize Results
-        # Pydantic models to dicts
-        # Note: When by_alias=True, exclude must use alias names (_source_file, _row_index)
+        # Serialize processed data
         serialized_data = [
-            model.model_dump(by_alias=True, exclude={'_source_file', '_row_index'})
+            model.model_dump(by_alias=True, exclude={'source_file', 'row_index'})
             for model in clean_models
         ]
+        
+        # ========== Data Distribution Stats ==========
+        # Campus distribution
+        campus_counts = {}
+        date_set = set()
+        class_set = set()
+        course_set = set()
+        
+        for model in clean_models:
+            if model.campus:
+                campus_counts[model.campus] = campus_counts.get(model.campus, 0) + 1
+            if model.date:
+                date_set.add(model.date)
+            if model.class_name:
+                class_set.add(model.class_name)
+            if model.course_name:
+                course_set.add(model.course_name)
+        
+        # Date range
+        sorted_dates = sorted(date_set) if date_set else []
+        date_range = f"{sorted_dates[0]} ~ {sorted_dates[-1]}" if sorted_dates else "N/A"
+        
+        # Duration stats
+        durations = [m.duration_minutes for m in clean_models if m.duration_minutes > 0]
+        avg_duration = round(sum(durations) / len(durations), 1) if durations else 0
 
         return {
             "filename": filename,
             "row_count": len(df),
+            # Part A: Raw Excel info
+            "raw_columns": list(df.columns),
+            "raw_columns_info": raw_columns_info,
+            "raw_samples": raw_samples,
+            # Mapping info
+            "mapping_details": mapping_details,
+            "column_mapping": {k: v for k, v in current_file_mapping.items() if v},
+            # Part B: Processing results
+            "parse_success_count": parse_success_count,
+            "parse_fail_count": parse_fail_count,
             "validation_errors": validation_errors,
             "total_errors": len(validation_errors),
-            "column_details": {col: str(df[col].dtype) for col in df.columns},
+            # Distribution stats
+            "campus_distribution": campus_counts,
+            "date_range": date_range,
+            "unique_classes": len(class_set),
+            "unique_courses": len(course_set),
+            "avg_duration_minutes": avg_duration,
+            # Processed data
             "raw_data": serialized_data,
-            "samples": serialized_data[:3] if serialized_data else []
+            "processed_samples": serialized_data[:3] if serialized_data else []
         }
 
     except Exception as e:
@@ -233,50 +316,231 @@ def process_single_file(file_path: str) -> Optional[Dict[str, Any]]:
         return None
 
 def generate_markdown_report(analyses: List[Dict], total_records: int) -> str:
-    lines = ["# Data Inventory & Quality Report", ""]
-    lines.append(f"**Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    lines.append(f"**Total Files Processed:** {len(analyses)}")
-    lines.append(f"**Total Records Extracted:** {total_records}")
+    """Generate comprehensive markdown report with Raw Excel Analysis + Processing Results"""
+    lines = []
+    
+    # ========== Header ==========
+    lines.append("# 📊 Data Inventory & Quality Report")
     lines.append("")
-
+    lines.append(f"> **Generated on:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(">")
+    lines.append("> This report provides complete visibility into raw Excel data and processing results.")
+    lines.append("> You do NOT need to open the original Excel files - all information is captured here.")
+    lines.append("")
+    
+    # ========== Executive Summary ==========
+    lines.append("## 📋 Executive Summary")
+    lines.append("")
+    lines.append("| Metric | Value |")
+    lines.append("|--------|-------|")
+    lines.append(f"| Total Files Processed | {len(analyses)} |")
+    lines.append(f"| Total Records Extracted | {total_records:,} |")
+    
+    # Aggregate stats
+    total_success = sum(a.get('parse_success_count', 0) for a in analyses)
+    total_fail = sum(a.get('parse_fail_count', 0) for a in analyses)
+    total_classes = sum(a.get('unique_classes', 0) for a in analyses)
+    total_courses = sum(a.get('unique_courses', 0) for a in analyses)
+    
+    # Aggregate campus distribution
+    all_campus = {}
+    all_dates = set()
+    for a in analyses:
+        for campus, count in a.get('campus_distribution', {}).items():
+            all_campus[campus] = all_campus.get(campus, 0) + count
+        if a.get('date_range') and a.get('date_range') != 'N/A':
+            parts = a.get('date_range', '').split(' ~ ')
+            all_dates.update(parts)
+    
+    sorted_all_dates = sorted(all_dates) if all_dates else []
+    global_date_range = f"{sorted_all_dates[0]} ~ {sorted_all_dates[-1]}" if len(sorted_all_dates) >= 2 else "N/A"
+    
+    lines.append(f"| Parse Success Rate | {total_success}/{total_success+total_fail} ({round(total_success/(total_success+total_fail)*100, 1) if (total_success+total_fail) > 0 else 0}%) |")
+    lines.append(f"| Date Range (All Files) | {global_date_range} |")
+    lines.append(f"| Unique Classes | ~{total_classes:,} |")
+    lines.append(f"| Unique Courses | ~{total_courses:,} |")
+    
+    if all_campus:
+        campus_str = ", ".join([f"{k} ({v:,})" for k, v in sorted(all_campus.items(), key=lambda x: -x[1])])
+        lines.append(f"| Campus Distribution | {campus_str} |")
+    
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    
+    # ========== Per-File Sections ==========
     for analysis in analyses:
         status_icon = "✅" if analysis['total_errors'] == 0 else "⚠️"
         lines.append(f"## {status_icon} File: `{analysis['filename']}`")
-        lines.append(f"- **Row Count:** {analysis['row_count']}")
-        
-        if analysis['total_errors'] > 0:
-            lines.append(f"- **Validation Warnings:** {analysis['total_errors']}")
-            lines.append("  > **Error Samples:**")
-            for err in analysis['validation_errors'][:5]:
-                lines.append(f"  - {err}")
-        else:
-            lines.append("- **Validation:** Passed")
-
         lines.append("")
-        lines.append("### Data Preview (Top 3 Rows)")
         
-        if analysis['samples']:
-            # Filter internal keys for cleaner table
-            keys = [k for k in analysis['samples'][0].keys() if not k.startswith('_') and k != 'id']
-            # Prioritize some keys
-            priority_keys = ['campus', 'course_name', 'class_name', 'teacher', 'raw_time', 'start_timestamp']
-            sorted_keys = [k for k in priority_keys if k in keys] + [k for k in keys if k not in priority_keys]
-            
-            # Header
-            lines.append("| " + " | ".join(sorted_keys) + " |")
-            # Separator
-            lines.append("| " + " | ".join(["---"] * len(sorted_keys)) + " |")
-            # Rows
-            for sample in analysis['samples']:
-                row_vals = [str(sample.get(k, '')).replace('\n', ' ') for k in sorted_keys]
+        # Quick stats
+        lines.append(f"**Rows:** {analysis['row_count']:,} | "
+                    f"**Columns:** {len(analysis.get('raw_columns', []))} | "
+                    f"**Parse Success:** {analysis.get('parse_success_count', 0)}/{analysis['row_count']} | "
+                    f"**Date Range:** {analysis.get('date_range', 'N/A')}")
+        lines.append("")
+        
+        # ========== Part A: Raw Excel Analysis ==========
+        lines.append("### 🔹 Part A: Raw Excel Analysis")
+        lines.append("")
+        lines.append("#### Original Column Names (as in Excel)")
+        lines.append("")
+        lines.append("| # | Excel Column Name | Data Type | Non-Null % | Unique Values | Sample Values |")
+        lines.append("|---|-------------------|-----------|------------|---------------|---------------|")
+        
+        for i, col_info in enumerate(analysis.get('raw_columns_info', []), 1):
+            lines.append(f"| {i} | `{col_info['column_name']}` | {col_info['dtype']} | "
+                        f"{col_info['non_null_pct']}% | {col_info['unique_count']:,} | {col_info['sample_values'][:50]} |")
+        
+        lines.append("")
+        
+        # Column Mapping
+        lines.append("#### Column Mapping (Excel → Standard Field)")
+        lines.append("")
+        lines.append("| Standard Field | Excel Column | Status |")
+        lines.append("|----------------|--------------|--------|")
+        
+        for mapping in analysis.get('mapping_details', []):
+            status = "✅ Mapped" if mapping['mapped'] else "❌ Not Found"
+            excel_col = f"`{mapping['excel_column']}`" if mapping['mapped'] else f"_(tried: {', '.join(mapping['possible_names'][:3])})_"
+            lines.append(f"| `{mapping['standard_field']}` | {excel_col} | {status} |")
+        
+        lines.append("")
+        
+        # Raw Data Sample
+        lines.append("#### Raw Data Sample (First 3 Rows, Unprocessed)")
+        lines.append("")
+        
+        raw_samples = analysis.get('raw_samples', [])
+        if raw_samples:
+            raw_keys = list(raw_samples[0].keys())
+            # Truncate column names for display
+            header = " | ".join([str(k)[:15] for k in raw_keys])
+            lines.append(f"| {header} |")
+            lines.append("| " + " | ".join(["---"] * len(raw_keys)) + " |")
+            for sample in raw_samples:
+                row_vals = [str(sample.get(k, ''))[:20].replace('\n', ' ').replace('|', '/') for k in raw_keys]
                 lines.append("| " + " | ".join(row_vals) + " |")
         else:
-            lines.append("_No data extracted_")
-
+            lines.append("_No raw data available_")
+        
+        lines.append("")
+        
+        # ========== Part B: Processing Results ==========
+        lines.append("### 🔹 Part B: Processing Results")
+        lines.append("")
+        
+        # Stats
+        lines.append("#### Processing Statistics")
+        lines.append("")
+        lines.append("| Metric | Value |")
+        lines.append("|--------|-------|")
+        lines.append(f"| Records Processed | {analysis['row_count']:,} |")
+        lines.append(f"| Time Parse Success | {analysis.get('parse_success_count', 0):,} |")
+        lines.append(f"| Time Parse Failed | {analysis.get('parse_fail_count', 0):,} |")
+        lines.append(f"| Unique Classes | {analysis.get('unique_classes', 0):,} |")
+        lines.append(f"| Unique Courses | {analysis.get('unique_courses', 0):,} |")
+        lines.append(f"| Avg Exam Duration | {analysis.get('avg_duration_minutes', 0)} min |")
+        
+        campus_dist = analysis.get('campus_distribution', {})
+        if campus_dist:
+            campus_str = ", ".join([f"{k} ({v})" for k, v in campus_dist.items()])
+            lines.append(f"| Campus Distribution | {campus_str} |")
+        
+        lines.append("")
+        
+        # Validation Errors
+        if analysis['total_errors'] > 0:
+            lines.append("#### ⚠️ Validation Warnings")
+            lines.append("")
+            lines.append(f"Found **{analysis['total_errors']}** rows with parsing issues:")
+            lines.append("")
+            for err in analysis['validation_errors'][:10]:
+                lines.append(f"- {err}")
+            if analysis['total_errors'] > 10:
+                lines.append(f"- _...and {analysis['total_errors'] - 10} more_")
+            lines.append("")
+        else:
+            lines.append("#### ✅ Validation: All Passed")
+            lines.append("")
+        
+        # Processed Data Sample
+        lines.append("#### Processed Data Sample (First 3 Rows)")
+        lines.append("")
+        
+        processed_samples = analysis.get('processed_samples', [])
+        if processed_samples:
+            # Select key fields for display
+            display_keys = ['class_name', 'course_name', 'campus', 'start_timestamp', 'location', 'teacher', 'count']
+            available_keys = [k for k in display_keys if k in processed_samples[0]]
+            
+            lines.append("| " + " | ".join(available_keys) + " |")
+            lines.append("| " + " | ".join(["---"] * len(available_keys)) + " |")
+            for sample in processed_samples:
+                row_vals = [str(sample.get(k, ''))[:25].replace('\n', ' ') for k in available_keys]
+                lines.append("| " + " | ".join(row_vals) + " |")
+        else:
+            lines.append("_No processed data available_")
+        
         lines.append("")
         lines.append("---")
         lines.append("")
-        
+    
+    # ========== Appendix ==========
+    lines.append("## 📚 Appendix")
+    lines.append("")
+    
+    # A. Field Mapping Reference
+    lines.append("### A. Field Mapping Reference")
+    lines.append("")
+    lines.append("The following table shows how Excel column names are mapped to standard field names:")
+    lines.append("")
+    lines.append("| Standard Field | Possible Excel Column Names |")
+    lines.append("|----------------|----------------------------|")
+    for std_field, possible_names in FIELD_MAPPING.items():
+        lines.append(f"| `{std_field}` | {', '.join(possible_names)} |")
+    
+    lines.append("")
+    
+    # B. Time Format Patterns
+    lines.append("### B. Supported Time Formats")
+    lines.append("")
+    lines.append("The system can parse the following time formats:")
+    lines.append("")
+    lines.append("| Format | Example | Regex Pattern |")
+    lines.append("|--------|---------|---------------|")
+    lines.append("| Chinese Date | `2025年11月15日(10:25-12:15)` | `(\\d{4})年(\\d{1,2})月(\\d{1,2})日.*?(\\d{1,2}:\\d{2})\\s*[-~至]\\s*(\\d{1,2}:\\d{2})` |")
+    lines.append("| ISO Date | `第11周周2(2025-11-18) 13:30-15:20` | `\\(?(\\d{4}-\\d{1,2}-\\d{1,2})\\)?.*?(\\d{1,2}:\\d{2})\\s*[-~至]\\s*(\\d{1,2}:\\d{2})` |")
+    
+    lines.append("")
+    
+    # C. Output Fields
+    lines.append("### C. Output JSON Fields")
+    lines.append("")
+    lines.append("The processed `all_exams.json` contains these fields per record:")
+    lines.append("")
+    lines.append("| Field | Type | Description |")
+    lines.append("|-------|------|-------------|")
+    lines.append("| `id` | string | Unique identifier (filename-row) |")
+    lines.append("| `class_name` | string | Class identifier (e.g., B240402) |")
+    lines.append("| `course_name` | string | Course name |")
+    lines.append("| `course_code` | string | Course code |")
+    lines.append("| `campus` | string | Campus name |")
+    lines.append("| `teacher` | string | Teacher name |")
+    lines.append("| `location` | string | Exam location |")
+    lines.append("| `raw_time` | string | Original time string from Excel |")
+    lines.append("| `start_timestamp` | string | Parsed ISO datetime |")
+    lines.append("| `end_timestamp` | string | Parsed ISO datetime |")
+    lines.append("| `duration_minutes` | integer | Exam duration in minutes |")
+    lines.append("| `count` | integer | Number of students |")
+    lines.append("| `notes` | string | Additional notes |")
+    
+    lines.append("")
+    lines.append("---")
+    lines.append("")
+    lines.append("*End of Report*")
+    
     return "\n".join(lines)
 
 

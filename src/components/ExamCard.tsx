@@ -6,7 +6,7 @@ interface ExamCardProps {
     onToggle: () => void;
 }
 
-const formatDisplayDate = (isoString?: string): string => {
+const formatDisplayDate = (isoString?: string | null): string => {
     if (!isoString) return '';
     const date = new Date(isoString);
     return date.toLocaleString('zh-CN', {
