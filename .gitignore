@@ -38,6 +38,7 @@ coverage/
 
 # Generated files
 project_structure.txt
+project_files.txt
 
 # Environment variables
 .env

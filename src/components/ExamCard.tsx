@@ -94,7 +94,7 @@ export function ExamCard({ exam, isSelected, onToggle }: ExamCardProps) {
                 </div>
                 <div className="mt-4 ml-7 pt-3 border-t border-slate-50 dark:border-slate-700 flex flex-wrap gap-x-6 gap-y-2 text-xs text-slate-500 dark:text-slate-400">
                     <span className="flex items-center gap-1">👨‍🏫 {exam.teacher || '未知'}</span>
-                    <span className="flex items-center gap-1">👥 {exam.count} 人</span>
+                    <span className="flex items-center gap-1">👥 {exam.count ?? '-'} 人</span>
                     {exam.notes && <span className="italic text-slate-400">注: {exam.notes}</span>}
                 </div>
             </div>

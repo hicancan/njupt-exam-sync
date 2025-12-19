@@ -156,6 +156,16 @@ def process_detail_page(url, title):
         # 3. 执行下载
         if not os.path.exists(SAVE_DIR):
             os.makedirs(SAVE_DIR)
+        else:
+            # [Added] Clean up old Excel files to prevent duplicates
+            print("🧹 清理旧数据文件...")
+            for f in os.listdir(SAVE_DIR):
+                if f.endswith('.xlsx') or f.endswith('.xls'):
+                    try:
+                        os.remove(os.path.join(SAVE_DIR, f))
+                        print(f"   - 删除: {f}")
+                    except Exception as e:
+                        print(f"   ❌ 删除失败 {f}: {e}")
             
         count = 0
         downloaded_files = []
