@@ -149,8 +149,10 @@ class ExamRecord(BaseModel):
             start_str = f"{date_str} {start_hm}:00"
             end_str = f"{date_str} {end_hm}:00"
 
-            start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S")
-            end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S")
+            # Add Beijing Timezone (UTC+8) explicitly
+            beijing_tz = timezone(timedelta(hours=8))
+            start_dt = datetime.strptime(start_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=beijing_tz)
+            end_dt = datetime.strptime(end_str, "%Y-%m-%d %H:%M:%S").replace(tzinfo=beijing_tz)
 
             self.duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
             self.start_timestamp = start_dt.isoformat()
@@ -571,44 +573,66 @@ def main():
             analyses.append(result)
             all_rows.extend(result['raw_data'])
 
-    logger.info(f"Saving {len(all_rows)} records to {MERGED_JSON_PATH}...")
-    try:
-        with open(MERGED_JSON_PATH, 'w', encoding='utf-8') as f:
-            json.dump(all_rows, f, ensure_ascii=False, separators=(',', ':'))
-    except Exception as e:
-        logger.error(f"Failed to write JSON: {e}")
-
-    report_content = generate_markdown_report(analyses, len(all_rows))
-    try:
-        with open(OUTPUT_DOC_PATH, 'w', encoding='utf-8') as f:
-            f.write(report_content)
-    except Exception as e:
-         logger.error(f"Failed to write Report: {e}")
-
-    manifest = {
-        "generated_at": get_beijing_time().isoformat(),
-        "files_processed": [a['filename'] for a in analyses],
-        "total_records": len(all_rows)
-    }
-
-    # Try to load source metadata
-    metadata_path = os.path.join(DATA_DIR, 'source_metadata.json')
-    if os.path.exists(metadata_path):
+    logger.info(f"Generated {len(all_rows)} records.")
+    
+    # Idempotency Check
+    data_changed = True
+    if os.path.exists(MERGED_JSON_PATH):
         try:
-            with open(metadata_path, 'r', encoding='utf-8') as f:
-                meta = json.load(f)
-                manifest['source_url'] = meta.get('source_url')
-                manifest['source_title'] = meta.get('source_title')
+            with open(MERGED_JSON_PATH, 'r', encoding='utf-8') as f:
+                existing_data = json.load(f)
+            # Compare assuming deterministic sorting/serialization
+            if existing_data == all_rows:
+                logger.info("⚡ Data is identical to existing file. Skipping write to prevent unnecessary commits.")
+                data_changed = False
+            else:
+                logger.info("Data content has changed.")
         except Exception as e:
-             logger.warning(f"Failed to load source metadata: {e}")
+            logger.warning(f"Could not compare with existing data: {e}")
 
-    try:
-        with open(os.path.join(DATA_DIR, 'data_summary.json'), 'w', encoding='utf-8') as f:
-            json.dump(manifest, f, indent=2, ensure_ascii=False)
-    except Exception as e:
-         logger.error(f"Failed to write Manifest: {e}")
+    if data_changed:
+        logger.info(f"Saving {len(all_rows)} records to {MERGED_JSON_PATH}...")
+        try:
+            with open(MERGED_JSON_PATH, 'w', encoding='utf-8') as f:
+                json.dump(all_rows, f, ensure_ascii=False, separators=(',', ':'))
+        except Exception as e:
+            logger.error(f"Failed to write JSON: {e}")
 
-    logger.info("Data processing complete.")
+        report_content = generate_markdown_report(analyses, len(all_rows))
+        try:
+            with open(OUTPUT_DOC_PATH, 'w', encoding='utf-8') as f:
+                f.write(report_content)
+        except Exception as e:
+             logger.error(f"Failed to write Report: {e}")
+
+        manifest = {
+            "generated_at": get_beijing_time().isoformat(),
+            "files_processed": [a['filename'] for a in analyses],
+            "total_records": len(all_rows)
+        }
+
+        # Try to load source metadata
+        metadata_path = os.path.join(DATA_DIR, 'source_metadata.json')
+        if os.path.exists(metadata_path):
+            try:
+                with open(metadata_path, 'r', encoding='utf-8') as f:
+                    meta = json.load(f)
+                    manifest['source_url'] = meta.get('source_url')
+                    manifest['source_title'] = meta.get('source_title')
+            except Exception as e:
+                 logger.warning(f"Failed to load source metadata: {e}")
+
+        try:
+            with open(os.path.join(DATA_DIR, 'data_summary.json'), 'w', encoding='utf-8') as f:
+                json.dump(manifest, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+             logger.error(f"Failed to write Manifest: {e}")
+
+        logger.info("✅ Data processing and updates complete.")
+    else:
+        logger.info("⚡ No changes detected. All files remain untouched.")
+
+    logger.info("Process finished.")
 
 
 if __name__ == "__main__":

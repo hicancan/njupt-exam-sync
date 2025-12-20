@@ -61,6 +61,7 @@ def is_teacher_file(filename: str) -> bool:
 def download_file(url: str, save_path: str) -> bool:
     try:
         print(f"  ⬇️  下载中: {os.path.basename(save_path)} ...", end="", flush=True)
+        # verify=False is intentional: JWC often has self-signed/incomplete cert chains
         response = requests.get(url, headers=HEADERS, verify=False, timeout=30)
         response.raise_for_status()
         with open(save_path, 'wb') as f:
@@ -113,7 +114,6 @@ def find_latest_schedule_notification() -> Optional[tuple[str, str]]:
         print(f"❌ 列表获取失败: {e}")
         return None
 
-def process_detail_page(url: str, title: str) -> None:
     """解析详情页并智能下载附件"""
     print(f"🔍 解析详情页附件...")
     try:
@@ -143,7 +143,6 @@ def process_detail_page(url: str, title: str) -> None:
             return
 
         # 2. 智能筛选附件
-        # 策略: 如果有含 "学生" 的文件，只下载这些。否则下载所有非 "监考" 的文件。
         student_files = [f for f in candidates if is_student_file(f['name'])]
         
         final_targets = []
@@ -154,33 +153,80 @@ def process_detail_page(url: str, title: str) -> None:
             print("ℹ️ 未检测到明确的'学生版'文件，将下载所有非监考文件。")
             final_targets = [f for f in candidates if not is_teacher_file(f['name'])]
 
-        # 3. 执行下载
-        if not os.path.exists(SAVE_DIR):
-            os.makedirs(SAVE_DIR)
-        else:
-            # [Added] Clean up old Excel files to prevent duplicates
+        import tempfile
+        import shutil
+        import hashlib
+
+        # 3. 下载到临时目录
+        with tempfile.TemporaryDirectory() as temp_dir:
+            print(f"⏳ 下载到临时目录: {temp_dir}")
+            downloaded_files = []
+            
+            count = 0
+            for file_info in final_targets:
+                save_path = os.path.join(temp_dir, file_info['name'])
+                if download_file(file_info['url'], save_path):
+                    count += 1
+                    downloaded_files.append(file_info['name'])
+            
+            if count == 0:
+                print("❌ 没有成功下载任何文件。")
+                return
+
+            # 4. Idempotency Check (比对 hash)
+            should_update = False
+            
+            if not os.path.exists(SAVE_DIR):
+                should_update = True
+                print("✨ 首次运行，准备保存。")
+            else:
+                # 获取现有 Excel 文件
+                existing_files = sorted([f for f in os.listdir(SAVE_DIR) if f.endswith(('.xls', '.xlsx'))])
+                new_files = sorted(downloaded_files)
+                
+                if existing_files != new_files:
+                    should_update = True
+                    print("🔄 文件列表变更，准备更新。")
+                else:
+                    # 文件列表相同，比对内容 hash
+                    for fname in new_files:
+                         new_path = os.path.join(temp_dir, fname)
+                         old_path = os.path.join(SAVE_DIR, fname)
+                         
+                         with open(new_path, 'rb') as f1, open(old_path, 'rb') as f2:
+                             if hashlib.md5(f1.read()).hexdigest() != hashlib.md5(f2.read()).hexdigest():
+                                 should_update = True
+                                 print(f"🔄 文件内容变更: {fname}")
+                                 break
+            
+            if not should_update:
+                print("⚡ 内容未变更，跳过更新 (Idempotent)。")
+                return
+
+            # 5. 执行更新
+            if not os.path.exists(SAVE_DIR):
+                os.makedirs(SAVE_DIR)
+            
+            # 清理旧 Excel
             print("🧹 清理旧数据文件...")
             for f in os.listdir(SAVE_DIR):
-                if f.endswith('.xlsx') or f.endswith('.xls'):
+                if f.endswith(('.xls', '.xlsx')):
                     try:
                         os.remove(os.path.join(SAVE_DIR, f))
-                        print(f"   - 删除: {f}")
                     except Exception as e:
                         print(f"   ❌ 删除失败 {f}: {e}")
-            
-        count = 0
-        downloaded_files = []
-        for file_info in final_targets:
-            save_path = os.path.join(SAVE_DIR, file_info['name'])
-            if download_file(file_info['url'], save_path):
-                count += 1
-                downloaded_files.append(file_info['name'])
-        
-        if count > 0:
+
+            # 移动新文件
+            for fname in downloaded_files:
+                src = os.path.join(temp_dir, fname)
+                dst = os.path.join(SAVE_DIR, fname)
+                shutil.copy2(src, dst)
+                print(f"✅ 保存文件: {fname}")
+
+            # 保存 Metadata
             import json
             from datetime import datetime, timezone, timedelta
             
-            # Beijing Time Helper
             beijing_tz = timezone(timedelta(hours=8))
             now_beijing = datetime.now(timezone.utc).astimezone(beijing_tz)
 
@@ -193,9 +239,9 @@ def process_detail_page(url: str, title: str) -> None:
             meta_path = os.path.join(SAVE_DIR, "source_metadata.json")
             with open(meta_path, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
-            print(f"💾 元数据已保存: {meta_path}")
+            print(f"💾 元数据已更新: {meta_path}")
 
-        print(f"\n🎉 处理完毕！成功下载 {count} 个文件。")
+        print(f"\n🎉 处理完毕！成功同步 {count} 个文件。")
             
     except Exception as e:
         print(f"❌ 详情页解析失败: {e}")
