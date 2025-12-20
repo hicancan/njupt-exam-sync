@@ -114,6 +114,7 @@ def find_latest_schedule_notification() -> Optional[tuple[str, str]]:
         print(f"❌ 列表获取失败: {e}")
         return None
 
+def process_detail_page(url: str, title: str):
     """解析详情页并智能下载附件"""
     print(f"🔍 解析详情页附件...")
     try:
