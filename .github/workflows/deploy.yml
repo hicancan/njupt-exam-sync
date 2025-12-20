@@ -30,6 +30,8 @@ jobs:
   # Build job
   build:
     runs-on: ubuntu-latest
+    outputs:
+      skip_deploy: ${{ steps.check_updates.outputs.skip_deploy }}
     steps:
       - name: Checkout 🛎️
         uses: actions/checkout@v4
@@ -87,6 +89,8 @@ jobs:
 
   # Deployment job
   deploy:
+    # Only run if build job actually uploaded an artifact
+    if: needs.build.outputs.skip_deploy != 'true'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -96,3 +100,4 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
