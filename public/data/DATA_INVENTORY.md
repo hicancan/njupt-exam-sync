@@ -1,6 +1,6 @@
 # 📊 Data Inventory & Quality Report
 
-> **Generated on:** 2025-12-22 09:09:36 (Beijing Time)
+> **Generated on:** 2025-12-22 20:29:35 (Beijing Time)
 >
 > This report provides complete visibility into raw Excel data and processing results.
 > You do NOT need to open the original Excel files - all information is captured here.
@@ -10,18 +10,18 @@
 | Metric | Value |
 |--------|-------|
 | Total Files Processed | 3 |
-| Total Records Extracted | 9,555 |
-| Parse Success Rate | 9555/9555 (100.0%) |
+| Total Records Extracted | 9,568 |
+| Parse Success Rate | 9568/9568 (100.0%) |
 | Date Range (All Files) | 2025-11-05 ~ 2026-01-23 |
 | Unique Classes | ~1,775 |
-| Unique Courses | ~526 |
-| Campus Distribution | 仙林 (8,656), 三牌楼 (837), 锁金 (62) |
+| Unique Courses | ~527 |
+| Campus Distribution | 仙林 (8,669), 三牌楼 (837), 锁金 (62) |
 
 ---
 
 ## ✅ File: `2025-2026学年第一学期考试安排表（学院组织）-学生用表.xlsx`
 
-**Rows:** 3,080 | **Columns:** 9 | **Parse Success:** 3080/3080 | **Date Range:** 2025-11-05 ~ 2026-01-23
+**Rows:** 3,083 | **Columns:** 9 | **Parse Success:** 3083/3083 | **Date Range:** 2025-11-05 ~ 2026-01-23
 
 ### 🔹 Part A: Raw Excel Analysis
 
@@ -31,12 +31,12 @@
 |---|-------------------|-----------|------------|---------------|---------------|
 | 1 | `校区` | object | 100.0% | 3 | 仙林, 三牌楼, 锁金 |
 | 2 | `开课学院` | object | 100.0% | 18 | 材料科学与工程学院, 自动化学院, 物联网学院 |
-| 3 | `课程代码` | object | 100.0% | 460 | CL1712F2S, CL1713F2S, CL1721F2S |
-| 4 | `课程名称` | object | 100.0% | 407 | 聚合物共混改性, 聚合物反应原理, 材料制备与加工技术 |
+| 3 | `课程代码` | object | 100.0% | 461 | CL1712F2S, CL1713F2S, CL1721F2S |
+| 4 | `课程名称` | object | 100.0% | 408 | 聚合物共混改性, 聚合物反应原理, 材料制备与加工技术 |
 | 5 | `班级名称` | object | 100.0% | 710 | B220601(GF), B220602(GF), B220603(CW) |
-| 6 | `任课教师` | object | 100.0% | 625 | 孙鹏飞, 陈莹, 许利刚 |
+| 6 | `任课教师` | object | 100.0% | 626 | 孙鹏飞, 陈莹, 许利刚 |
 | 7 | `人数` | int64 | 100.0% | 40 | 19, 25, 33 |
-| 8 | `考试时间` | object | 100.0% | 118 | 第11周周2(2025-11-18) 13:30-15:20, 第11周周4(2025-11-20) |
+| 8 | `考试时间` | object | 100.0% | 119 | 第11周周2(2025-11-18) 13:30-15:20, 第11周周4(2025-11-20) |
 | 9 | `考试教室` | object | 100.0% | 101 | 教4－208, 教4－110, 教4－205 |
 
 #### Column Mapping (Excel → Standard Field)
@@ -71,13 +71,13 @@
 
 | Metric | Value |
 |--------|-------|
-| Records Processed | 3,080 |
-| Time Parse Success | 3,080 |
+| Records Processed | 3,083 |
+| Time Parse Success | 3,083 |
 | Time Parse Failed | 0 |
 | Unique Classes | 710 |
-| Unique Courses | 406 |
+| Unique Courses | 407 |
 | Avg Exam Duration | 110.0 min |
-| Campus Distribution | 仙林 (2755), 三牌楼 (324), 锁金 (1) |
+| Campus Distribution | 仙林 (2758), 三牌楼 (324), 锁金 (1) |
 
 #### ✅ Validation: All Passed
 
@@ -168,7 +168,7 @@
 
 ## ✅ File: `2025-2026学年第一学期考试安排表（学校组织19-20周）-学生用表.xlsx`
 
-**Rows:** 6,212 | **Columns:** 12 | **Parse Success:** 6212/6212 | **Date Range:** 2026-01-07 ~ 2026-01-22
+**Rows:** 6,222 | **Columns:** 12 | **Parse Success:** 6222/6222 | **Date Range:** 2026-01-07 ~ 2026-01-22
 
 ### 🔹 Part A: Raw Excel Analysis
 
@@ -221,13 +221,13 @@
 
 | Metric | Value |
 |--------|-------|
-| Records Processed | 6,212 |
-| Time Parse Success | 6,212 |
+| Records Processed | 6,222 |
+| Time Parse Success | 6,222 |
 | Time Parse Failed | 0 |
 | Unique Classes | 829 |
 | Unique Courses | 116 |
 | Avg Exam Duration | 111.7 min |
-| Campus Distribution | 三牌楼 (502), 仙林 (5649), 锁金 (61) |
+| Campus Distribution | 三牌楼 (502), 仙林 (5659), 锁金 (61) |
 
 #### ✅ Validation: All Passed
 
