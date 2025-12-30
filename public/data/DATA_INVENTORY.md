@@ -1,6 +1,6 @@
 # 📊 Data Inventory & Quality Report
 
-> **Generated on:** 2025-12-29 20:30:31 (Beijing Time)
+> **Generated on:** 2025-12-30 20:29:27 (Beijing Time)
 >
 > This report provides complete visibility into raw Excel data and processing results.
 > You do NOT need to open the original Excel files - all information is captured here.
@@ -10,12 +10,12 @@
 | Metric | Value |
 |--------|-------|
 | Total Files Processed | 3 |
-| Total Records Extracted | 9,567 |
-| Parse Success Rate | 9567/9567 (100.0%) |
+| Total Records Extracted | 9,569 |
+| Parse Success Rate | 9569/9569 (100.0%) |
 | Date Range (All Files) | 2025-11-05 ~ 2026-01-23 |
 | Unique Classes | ~1,775 |
 | Unique Courses | ~526 |
-| Campus Distribution | 仙林 (8,668), 三牌楼 (837), 锁金 (62) |
+| Campus Distribution | 仙林 (8,670), 三牌楼 (837), 锁金 (62) |
 
 ---
 
@@ -168,7 +168,7 @@
 
 ## ✅ File: `2025-2026学年第一学期考试安排表（学校组织19-20周）-学生用表.xlsx`
 
-**Rows:** 6,223 | **Columns:** 12 | **Parse Success:** 6223/6223 | **Date Range:** 2026-01-07 ~ 2026-01-22
+**Rows:** 6,225 | **Columns:** 12 | **Parse Success:** 6225/6225 | **Date Range:** 2026-01-07 ~ 2026-01-22
 
 ### 🔹 Part A: Raw Excel Analysis
 
@@ -221,13 +221,13 @@
 
 | Metric | Value |
 |--------|-------|
-| Records Processed | 6,223 |
-| Time Parse Success | 6,223 |
+| Records Processed | 6,225 |
+| Time Parse Success | 6,225 |
 | Time Parse Failed | 0 |
 | Unique Classes | 829 |
 | Unique Courses | 116 |
 | Avg Exam Duration | 111.7 min |
-| Campus Distribution | 三牌楼 (502), 仙林 (5660), 锁金 (61) |
+| Campus Distribution | 三牌楼 (502), 仙林 (5662), 锁金 (61) |
 
 #### ✅ Validation: All Passed
 
