@@ -37,6 +37,8 @@ const escapeICSValue = (str: string): string => {
         .replace(/\\/g, '\\\\')  // 反斜杠必须首先转义
         .replace(/,/g, '\\,')
         .replace(/;/g, '\\;')
+        .replace(/\r\n/g, '\\n')
+        .replace(/\r/g, '\\n')
         .replace(/\n/g, '\\n');
 };
 
